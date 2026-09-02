@@ -80,6 +80,7 @@ export const api = {
     list: () => request<Sprint[]>("/sprints"),
     current: () => request<Sprint | null>("/sprints/current"),
     get: (id: string) => request<Sprint>(`/sprints/${id}`),
+    byWeek: (weekId: string) => request<Sprint>(`/sprints/week/${weekId}`),
     create: (data: Partial<Sprint>) => request<Sprint>("/sprints", { method: "POST", body: JSON.stringify(data) }),
     update: (id: string, data: Partial<Sprint>) => request<Sprint>(`/sprints/${id}`, { method: "PUT", body: JSON.stringify(data) }),
     delete: (id: string) => request<void>(`/sprints/${id}`, { method: "DELETE" }),

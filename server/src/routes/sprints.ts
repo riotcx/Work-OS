@@ -18,6 +18,37 @@ sprintsRouter.get("/current", (_req, res) => {
   res.json(sprint ?? null);
 });
 
+sprintsRouter.get("/week/:weekId", (req, res) => {
+  const { weekId } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(weekId)) {
+    return res.status(400).json({ error: "weekId inválido, formato YYYY-MM-DD" });
+  }
+
+  let sprint = db.prepare("SELECT * FROM sprints WHERE start_date = ?").get(weekId) as any;
+
+  if (!sprint) {
+    const start = new Date(weekId + "T00:00:00");
+    const end = new Date(start);
+    end.setDate(end.getDate() + 6);
+    const fmt = (d: Date) => d.toISOString().slice(0, 10);
+    const endDate = fmt(end);
+    const id = nanoid(10);
+    const name = `Sprint ${weekId} — ${endDate}`;
+
+    db.prepare("INSERT INTO sprints (id, name, start_date, end_date, status) VALUES (?, ?, ?, ?, 'activo')")
+      .run(id, name, weekId, endDate);
+
+    sprint = db.prepare("SELECT * FROM sprints WHERE id = ?").get(id);
+  }
+
+  if (sprint) {
+    const tasks = db.prepare("SELECT * FROM tasks WHERE sprint_id = ?").all(sprint.id);
+    sprint.tasks = tasks;
+  }
+
+  res.json(sprint ?? null);
+});
+
 sprintsRouter.get("/:id", (req, res) => {
   const sprint = db.prepare("SELECT * FROM sprints WHERE id = ?").get(req.params.id);
   if (!sprint) return res.status(404).json({ error: "Sprint no encontrado" });

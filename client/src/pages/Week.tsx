@@ -1,48 +1,51 @@
 import { useState, useEffect, type DragEvent } from "react";
-import { ChevronLeft, ChevronRight, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useWorkOS } from "../store";
-import { QuickAdd } from "../components/QuickAdd";
-import { TaskCard } from "../components/TaskCard";
 import { TaskModal } from "../components/TaskModal";
 import type { Task, Sprint } from "../types";
-import { PRIORITY_COLOR } from "../types";
-import { SPRINT_CAPACITY, formatTime } from "../constants";
-
-const DAY_NAMES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
-
-function getSprintDays(sprint: Sprint): Date[] {
-  const start = new Date(sprint.start_date + "T00:00:00");
-  const end = new Date(sprint.end_date + "T00:00:00");
-  const days: Date[] = [];
-  const d = new Date(start);
-  while (d <= end && days.length < 14) {
-    days.push(new Date(d));
-    d.setDate(d.getDate() + 1);
-  }
-  return days;
-}
-
-function fmtDate(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function isSameDay(a: string | null, b: Date): boolean {
-  if (!a) return false;
-  return a.slice(0, 10) === fmtDate(b);
-}
+import { formatTime } from "../constants";
+import { useWeekNavigation } from "../useWeekNavigation";
+import {
+  getWeekDays,
+  formatWeekHeader,
+  isSameDay,
+  fmtDate,
+  DAY_NAMES,
+} from "../weekUtils";
+import { api } from "../api";
 
 export function Week() {
-  const { tasks, areas, projects, goals, sprint, sprints, focusSessions, updateTask, addTask, loadSprints } = useWorkOS();
+  const { tasks, areas, projects, goals, focusSessions, updateTask, addTask } = useWorkOS();
+  const nav = useWeekNavigation();
+  const [sprint, setSprint] = useState<Sprint | null>(null);
+  const [loading, setLoading] = useState(false);
   const [editing, setEditing] = useState<Task | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
   const [dragOverUnscheduled, setDragOverUnscheduled] = useState(false);
   const [showAdd, setShowAdd] = useState<string | null>(null);
 
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    api.sprints.byWeek(nav.selectedWeekId).then((s) => {
+      if (!cancelled) {
+        setSprint(s);
+        setLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) {
+        setSprint(null);
+        setLoading(false);
+      }
+    });
+    return () => { cancelled = true; };
+  }, [nav.selectedWeekId]);
+
   const areaById = Object.fromEntries(areas.map((a) => [a.id, a]));
   const projectById = Object.fromEntries(projects.map((p) => [p.id, p]));
   const goalByArea = Object.fromEntries(goals.map((g) => [g.area_id, g]));
 
-  const days = sprint ? getSprintDays(sprint) : [];
+  const days = sprint ? getWeekDays(nav.selectedWeekId) : [];
   const sprintTasks = tasks.filter((t) => t.sprint_id === sprint?.id);
   const done = sprintTasks.filter((t) => t.status === "completado").length;
   const total = sprintTasks.length;
@@ -73,36 +76,58 @@ export function Week() {
 
   return (
     <div className="p-4 h-full flex flex-col">
-      {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-ink">📅 Semana</h1>
-          {sprint && (
-            <p className="text-sm text-muted">
-              {sprint.name} · {sprint.start_date} → {sprint.end_date}
-            </p>
-          )}
+          <p className="text-sm text-muted">
+            {formatWeekHeader(nav.selectedWeekId)}
+          </p>
         </div>
+
         <div className="flex items-center gap-2">
           <button
-            onClick={() => loadSprints()}
-            className="text-xs px-3 py-1 rounded-md border border-border text-muted hover:text-ink"
+            onClick={nav.goBack}
+            disabled={!nav.canGoBack}
+            className="p-1.5 rounded-md border border-border text-muted hover:text-ink hover:border-borderLight disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
-            ↻
+            <ChevronLeft size={16} />
+          </button>
+
+          {!nav.isCurrent && (
+            <button
+              onClick={nav.goToday}
+              className="text-xs font-hud px-3 py-1.5 rounded-md border border-signal/40 text-signal hover:bg-signal/10 transition-colors"
+            >
+              HOY
+            </button>
+          )}
+
+          {nav.isCurrent && (
+            <span className="text-xs font-hud text-signal px-2">ACTUAL</span>
+          )}
+
+          <button
+            onClick={nav.goForward}
+            disabled={!nav.canGoForward}
+            className="p-1.5 rounded-md border border-border text-muted hover:text-ink hover:border-borderLight disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <ChevronRight size={16} />
           </button>
         </div>
       </div>
 
-      {!sprint ? (
+      {loading ? (
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-sm text-faint animate-pulse">Cargando sprint...</p>
+        </div>
+      ) : !sprint ? (
         <div className="flex-1 flex items-center justify-center">
           <div className="text-center">
-            <p className="text-sm text-muted">No hay sprint activo.</p>
-            <p className="text-xs text-faint mt-1">Crea un sprint para comenzar a planificar tu semana.</p>
+            <p className="text-sm text-muted">No hay sprint para esta semana.</p>
           </div>
         </div>
       ) : (
         <>
-          {/* Progress bar */}
           <div className="flex items-center gap-3 mb-4">
             <div className="flex-1 h-1.5 bg-panelRaised rounded-full overflow-hidden">
               <div className="h-full bg-signal transition-all" style={{ width: `${pct}%` }} />
@@ -111,9 +136,7 @@ export function Week() {
             <span className="text-xs text-faint">⚡ {formatTime(sprintFocus)} focus</span>
           </div>
 
-          {/* Grid: 7 days */}
           <div className="flex-1 flex gap-2 overflow-x-auto pb-4 min-h-0">
-            {/* Unscheduled column */}
             <div
               className="w-44 shrink-0 flex flex-col"
               onDragOver={(e) => { e.preventDefault(); setDragOverUnscheduled(true); }}
@@ -141,7 +164,6 @@ export function Week() {
               </div>
             </div>
 
-            {/* Day columns */}
             {days.map((day, i) => {
               const dateStr = fmtDate(day);
               const dayTasks = sprintTasks.filter((t) => isSameDay(t.due_date, day));
