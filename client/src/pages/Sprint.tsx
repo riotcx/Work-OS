@@ -5,7 +5,8 @@ import { TaskCard } from "../components/TaskCard";
 import { TaskModal } from "../components/TaskModal";
 import type { Task } from "../types";
 import { STATUS_LABELS } from "../types";
-import { SPRINT_CAPACITY, getCurrentWeekRange } from "../constants";
+import { SPRINT_CAPACITY } from "../constants";
+import { getCurrentWeek } from "../weekUtils";
 import type { View } from "../App";
 
 interface SprintProps {
@@ -40,8 +41,8 @@ export function Sprint({ onNavigate }: SprintProps) {
   const handleCreateSprint = async (e: FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    const { start, end } = getCurrentWeekRange();
-    await createSprint({ name: newName.trim(), start_date: start, end_date: end });
+    const { startDate, endDate } = getCurrentWeek();
+    await createSprint({ name: newName.trim(), start_date: startDate, end_date: endDate });
     setNewName("");
     setCreating(false);
     await loadSprints();

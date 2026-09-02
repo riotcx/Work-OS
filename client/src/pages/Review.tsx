@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { useWorkOS } from "../store";
-import { getCurrentWeekRange } from "../constants";
+import { getCurrentWeek } from "../weekUtils";
 
 interface SprintReview {
   sprint: { id: string; name: string; start_date: string; end_date: string; status: string };
@@ -74,11 +74,11 @@ export function Review() {
   const handleCreateNewSprint = async (e: FormEvent) => {
     e.preventDefault();
     if (!newSprintName.trim()) return;
-    const { start, end } = getCurrentWeekRange();
+    const { startDate, endDate } = getCurrentWeek();
     await createSprint({
       name: newSprintName.trim(),
-      start_date: start,
-      end_date: end,
+      start_date: startDate,
+      end_date: endDate,
     });
     setNewSprintName("");
     setCreatingSprint(false);

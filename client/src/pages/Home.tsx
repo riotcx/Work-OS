@@ -3,8 +3,7 @@ import { useWorkOS } from "../store";
 import { TaskCard } from "../components/TaskCard";
 import { TaskModal } from "../components/TaskModal";
 import type { Task } from "../types";
-
-import { getCurrentWeekRange } from "../constants";
+import { getCurrentWeek } from "../weekUtils";
 
 export function Home() {
   const { tasks, areas, sprint, goals, projects } = useWorkOS();
@@ -19,9 +18,9 @@ export function Home() {
   const sprintTotal = sprintTasks.length;
   const sprintPct = sprintTotal > 0 ? Math.round((sprintDone / sprintTotal) * 100) : 0;
 
-  const { start, end } = getCurrentWeekRange();
-  const thisWeekStart = start + "T00:00:00";
-  const thisWeekEnd = end + "T23:59:59";
+  const { startDate, endDate } = getCurrentWeek();
+  const thisWeekStart = startDate + "T00:00:00";
+  const thisWeekEnd = endDate + "T23:59:59";
   const weekDone = tasks.filter((t) => t.status === "completado" && t.completed_at && t.completed_at >= thisWeekStart && t.completed_at <= thisWeekEnd).length;
   const weekTotal = tasks.filter((t) => t.sprint_id === sprint?.id || (t.created_at >= thisWeekStart && t.created_at <= thisWeekEnd)).length;
 

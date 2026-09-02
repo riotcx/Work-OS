@@ -27,11 +27,17 @@ sprintsRouter.get("/week/:weekId", (req, res) => {
   let sprint = db.prepare("SELECT * FROM sprints WHERE start_date = ?").get(weekId) as any;
 
   if (!sprint) {
-    const start = new Date(weekId + "T00:00:00");
+    const [y, m, d] = weekId.split("-").map(Number);
+    const start = new Date(y, m - 1, d);
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
-    const fmt = (d: Date) => d.toISOString().slice(0, 10);
-    const endDate = fmt(end);
+    const fmtDate = (dt: Date) => {
+      const yy = dt.getFullYear();
+      const mm = String(dt.getMonth() + 1).padStart(2, "0");
+      const dd = String(dt.getDate()).padStart(2, "0");
+      return `${yy}-${mm}-${dd}`;
+    };
+    const endDate = fmtDate(end);
     const id = nanoid(10);
     const name = `Sprint ${weekId} — ${endDate}`;
 
@@ -61,8 +67,15 @@ sprintsRouter.post("/", (req, res) => {
   const { name, start_date, end_date } = req.body;
   if (!name) return res.status(400).json({ error: "name es requerido" });
   const id = nanoid(10);
+  const now = new Date();
+  const fmtDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  };
   db.prepare("INSERT INTO sprints (id, name, start_date, end_date, status) VALUES (?, ?, ?, ?, 'activo')")
-    .run(id, name, start_date ?? new Date().toISOString().slice(0, 10), end_date ?? "", );
+    .run(id, name, start_date ?? fmtDate(now), end_date ?? "");
   res.status(201).json(db.prepare("SELECT * FROM sprints WHERE id = ?").get(id));
 });
 
